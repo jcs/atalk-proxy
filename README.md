@@ -94,3 +94,8 @@ packet is described.
 `atalk-proxy` only proxies AppleTalk and AARP traffic and does not proxy IP or
 ARP traffic.
 Use kernel-level NAT if you also need IP traffic proxied.
+
+On Linux you may need to enable the `ALLMULTI` flag on the egress Wi-Fi
+interface:
+
+	$ sudo ip link set wlan0 allmulticast on
