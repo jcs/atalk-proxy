@@ -1,6 +1,6 @@
-CFLAGS	= -O2 -Wall -Wunused -Wmissing-prototypes -Wstrict-prototypes -Wunused
+CFLAGS	= -O2 -Wall -Wextra -Wunused -Wmissing-prototypes -Wstrict-prototypes
 CFLAGS += -g
-CC	= cc
+CC	?= cc
 
 LIBS	= -lpcap
 
