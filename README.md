@@ -13,7 +13,8 @@ but this one has a few features I needed:
   header.
 
 - It drops privileges after opening listening sockets using
-  [`pledge`](https://man.openbsd.org/pledge).
+  [`pledge`](https://man.openbsd.org/pledge),
+  when running on OpenBSD.
 
 - Bare AARP packets that appear on the wire without a Logical-Link Control
   header are given an LLC encapsulation before proxying.
@@ -33,7 +34,7 @@ but this one has a few features I needed:
 	$ cd atalk-proxy
 	$ make
 
-`atalk-proxy` was written on OpenBSD and has only been tested there.
+`atalk-proxy` was written on OpenBSD and also tested on Linux.
 
 ## Usage
 

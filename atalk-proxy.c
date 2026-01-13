@@ -23,8 +23,14 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <pcap/bpf.h>
+#include <netpacket/packet.h>
+#include <net/ethernet.h>
+#elif defined(__OpenBSD__)
 #include <net/bpf.h>
 #include <net/if_dl.h>
+#endif
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -62,7 +68,10 @@ int
 main(int argc, char *argv[])
 {
 	struct pollfd pfd[3];
-	int ch, n, nready, cmplt;
+	int ch, n, nready;
+#ifdef __OpenBSD__
+	int cmplt;
+#endif
 
 	while ((ch = getopt(argc, argv, "de:t:")) != -1) {
 		switch (ch) {
@@ -95,11 +104,13 @@ main(int argc, char *argv[])
 		pfd[n].fd = pcap_get_selectable_fd(pcaps[n]);
 		pfd[n].events = POLLIN;
 
+#ifdef __OpenBSD__
 		/* set BIOCSHDRCMPLT so we can change link-level source MAC */
 		cmplt = 1;
 		if (ioctl(pfd[n].fd, BIOCSHDRCMPLT, &cmplt) == -1)
 			err(1, "failed setting BIOCSHDRCMPLT on %s",
 			    ifaces[n]);
+#endif
 
 		if (n == IFACE_EGRESS) {
 			if (mac(ifaces[n], (unsigned char *)&emac) == -1)
@@ -116,8 +127,12 @@ main(int argc, char *argv[])
 		}
 	}
 
+#ifdef __OpenBSD__
 	if (pledge("stdio", NULL) == -1)
 		err(1, "pledge");
+#else
+	warnx("no pledge support");
+#endif
 
 	for (;;) {
 		nready = poll(pfd, 2, 60 * 1000);
@@ -147,7 +162,6 @@ sniff(char *iface, char *filter)
 {
 	struct bpf_program fp;
 	pcap_t *handle;
-	bpf_u_int32 mask = 0, net = 0;
 
 	if ((handle = pcap_create(iface, errbuf)) == NULL)
 		err(1, "pcap_create");
@@ -160,9 +174,6 @@ sniff(char *iface, char *filter)
 
 	if (pcap_setdirection(handle, PCAP_D_IN) == -1)
 		err(1, "pcap_setdirection");
-
-	if (pcap_lookupnet(iface, &net, &mask, errbuf) == -1)
-		warn("pcap_lookupnet(\"%s\"): %s", iface, errbuf);
 
 	if (pcap_compile(handle, &fp, filter, 0, 0) == -1)
 		errx(1, "pcap_compile: %s", pcap_geterr(handle));
@@ -180,13 +191,30 @@ int
 mac(const char *ifname, unsigned char *mac)
 {
 	struct ifaddrs *ifap, *ifa;
+#ifdef __linux__
+	struct sockaddr_ll *sll;
+#elif defined(__OpenBSD__)
 	struct sockaddr_dl *sdl;
+#endif
 	int found = 0;
 
 	if (getifaddrs(&ifap) != 0)
 		return -1;
 
 	for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next) {
+#ifdef __linux__
+		if (ifa->ifa_addr == NULL ||
+		    ifa->ifa_addr->sa_family != AF_PACKET ||
+		    strcmp(ifa->ifa_name, ifname) != 0)
+			continue;
+
+		sll = (struct sockaddr_ll *)ifa->ifa_addr;
+		if (sll->sll_halen == 6) {
+			memcpy(mac, sll->sll_addr, 6);
+			found = 1;
+			break;
+		}
+#else
 		if (ifa->ifa_addr == NULL ||
 		    ifa->ifa_addr->sa_family != AF_LINK ||
 		    strcmp(ifa->ifa_name, ifname) != 0)
@@ -198,6 +226,7 @@ mac(const char *ifname, unsigned char *mac)
 			found = 1;
 			break;
 		}
+#endif
 	}
 
 	freeifaddrs(ifap);
@@ -233,7 +262,7 @@ ts(void)
 
 	tm = localtime(&ts.tv_sec);
 	strftime(ti, sizeof(ti), "%H:%M:%S", tm);
-	snprintf(ret, sizeof(ret), "%s.%03li", ti, msec);
+	snprintf(ret, sizeof(ret), "%s.%03i", ti, (int)msec);
 
 	return ret;
 }
