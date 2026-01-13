@@ -88,3 +88,9 @@ packet is described.
 	[12:47:59.134] [tap0] [ 56] NBP: lookup: "=:AFPServer@*" [-> iwx0]
 	[12:47:59.443] [iwx0] [ 57] NBP: reply[1]: "fs:AFPServer@*" [-> tap0]
 	[12:48:00.337] [tap0] [ 43] transaction protocol [-> iwx0]
+
+## Caveats
+
+`atalk-proxy` only proxies AppleTalk and AARP traffic and does not proxy IP or
+ARP traffic.
+Use kernel-level NAT if you also need IP traffic proxied.
